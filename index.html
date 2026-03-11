@@ -59,6 +59,7 @@
   <script>
     console.log("URL:", window.location.href);
     console.log("QUERY:", window.location.search);
+    
     const MOSAD = "7006117";
     const API_VALID = "/M98yhlNWO";
     const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
@@ -66,6 +67,10 @@
     const iframe = document.getElementById("NedarimFrame");
     const saveBtn = document.getElementById("saveBtn");
     const msg = document.getElementById("msg");
+
+    // חילוץ ה-ID פעם אחת בטעינה
+    const urlParams = new URLSearchParams(window.location.search);
+    const origamiId = urlParams.get('origami_id');
 
     function sendParentHeight() {
       const h = Math.max(
@@ -120,7 +125,7 @@
           res.CardToken ||
           res.CreditToken ||
           res.TransactionToken ||
-          "";
+          "" ;
 
         if (!token) {
           console.log("Full response:", res);
@@ -131,6 +136,7 @@
         }
 
         try {
+          // שליחת הנתונים למייק כולל ה-origamiId שחילצנו
           const response = await fetch(MAKE_WEBHOOK, {
             method: "POST",
             headers: {
@@ -138,6 +144,7 @@
             },
             body: JSON.stringify({
               token: token,
+              origami_id: origamiId, // כאן ה-ID נשלח למייק
               response: res
             })
           });
