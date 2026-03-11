@@ -21,15 +21,6 @@
       margin: 0;
     }
 
-    .hint {
-      margin: 0 0 6px 0;
-      font-size: 12px;
-      line-height: 1.35;
-      color: #5b6470;
-      text-align: right;
-      font-weight: 600;
-    }
-
     .row {
       display: flex;
       align-items: center;
@@ -59,7 +50,7 @@
 
     #saveBtn {
       height: 46px;
-      min-width: 118px;
+      min-width: 112px;
       padding: 0 16px;
       border: 0;
       border-radius: 8px;
@@ -81,12 +72,12 @@
     }
 
     #msg {
-      margin-top: 6px;
-      min-height: 16px;
-      font-size: 12px;
-      line-height: 1.3;
+      margin-top: 4px;
+      min-height: 14px;
+      font-size: 11px;
+      line-height: 1.2;
       text-align: right;
-      color: #444;
+      color: #666;
     }
 
     .success {
@@ -102,8 +93,6 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="hint">יש להזין אשראי ואז ללחוץ על "שמור כרטיס"</div>
-
     <div class="row">
       <div class="frame-wrap">
         <iframe
@@ -121,9 +110,9 @@
   </div>
 
   <script>
-    const MOSAD = "REPLACE_MOSAD";
-    const API_VALID = "REPLACE_API_VALID";
-    const MAKE_WEBHOOK = "https://hook.eu2.make.com/REPLACE_WEBHOOK";
+    const MOSAD = "7006117";
+    const API_VALID = "/M98yhlNWO";
+    const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
 
     const params = new URLSearchParams(window.location.search);
     const donorId = params.get("donor_id") || "";
@@ -137,7 +126,7 @@
       msg.className = type;
     }
 
-    function resizeParent(height = 70) {
+    function resizeParent(height = 58) {
       window.parent.postMessage(
         {
           type: "resize_widget",
@@ -153,7 +142,7 @@
     }
 
     window.onload = function () {
-      resizeParent(74);
+      resizeParent(58);
 
       window.addEventListener("message", readPostMessage, false);
 
@@ -164,8 +153,8 @@
       iframe.src =
         "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide&Picture=Hide";
 
-      setTimeout(() => resizeParent(74), 300);
-      setTimeout(() => resizeParent(74), 1000);
+      setTimeout(() => resizeParent(58), 300);
+      setTimeout(() => resizeParent(58), 1000);
     };
 
     async function readPostMessage(event) {
@@ -216,7 +205,7 @@
             throw new Error("Webhook failed with status " + makeResponse.status);
           }
 
-          setMsg("✓ הכרטיס נשמר בהצלחה", "success");
+          setMsg("✓ הכרטיס נשמר", "success");
           saveBtn.textContent = "נשמר";
         } catch (error) {
           console.error(error);
@@ -241,7 +230,6 @@
           ApiValid: API_VALID,
           PaymentType: "CreateToken",
           Currency: "1",
-
           Zeout: "",
           FirstName: "",
           LastName: "",
@@ -249,16 +237,13 @@
           City: "",
           Phone: "",
           Mail: "",
-
           Amount: "1",
           Tashlumim: "1",
-
           Groupe: "",
           Comment: "Create token",
           Param1: "",
           Param2: "",
           ForceUpdateMatching: "1",
-
           CallBack: "",
           CallBackMailError: "",
           Tokef: ""
