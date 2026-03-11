@@ -3,58 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compact Payment Strip</title>
+  <title>Payment Strip</title>
   <style>
     html, body { margin: 0; padding: 0; background: transparent; font-family: Arial, sans-serif; overflow: hidden; }
     
     .container {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 4px;
+      flex-direction: row; /* הכל בשורה אחת */
+      align-items: center; /* יישור אנכי למרכז */
+      gap: 12px;
+      padding: 5px 10px;
+      height: 55px; /* הגדרת גובה קבוע לשורה */
+      box-sizing: border-box;
     }
 
     iframe {
-      flex-grow: 1;
-      height: 45px;
-      border: 0;
-      background: transparent;
+      flex: 3; /* השדה מקבל את רוב הרוחב */
+      height: 45px !important;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      min-width: 150px;
     }
 
     button {
-      white-space: nowrap;
-      padding: 10px 20px;
-      font-size: 14px;
+      flex: 1; /* כפתור בגודל גמיש */
+      height: 40px;
+      padding: 0 15px;
+      font-size: 15px;
       border: 0;
       border-radius: 6px;
       cursor: pointer;
       background: #0f766e;
       color: white;
       font-weight: bold;
-      height: 45px;
+      white-space: nowrap; /* שהטקסט לא ירד שורה */
     }
 
     button:disabled { background: #ccc; }
 
-    /* הסמלים החדשים בשורה */
     .security-icons {
+      flex: 0 0 auto; /* סמלים לא משתנים ברוחב */
       display: flex;
       align-items: center;
-      gap: 5px;
-      opacity: 0.6;
+      gap: 6px;
+      margin-right: 5px;
     }
 
     .security-icons img {
-      height: 22px;
+      height: 20px; /* סמלים קטנים מאוד כפי שביקשת */
       width: auto;
+      filter: grayscale(20%); /* שיהיה עדין */
     }
 
-    .status-msg {
+    #msg {
       position: absolute;
-      bottom: 0;
-      right: 10px;
+      bottom: 2px;
+      right: 15px;
       font-size: 11px;
-      color: #666;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -62,16 +68,16 @@
 
   <div class="container">
     <iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
-    
+
     <button id="saveBtn" type="button">שמור</button>
 
     <div class="security-icons">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png" alt="PCI">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png" alt="Secure">
+      <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png" title="PCI Protected">
+      <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png" title="Secure SSL">
     </div>
   </div>
 
-  <div id="msg" class="status-msg"></div>
+  <div id="msg"></div>
 
 <script>
 const MOSAD = "7006117";
@@ -79,15 +85,15 @@ const API_VALID = "/M98yhlNWO";
 const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
 
 const params = new URLSearchParams(window.location.search);
-// שים לב: השארתי donor_id כדי שיתאים להגדרות ה-URL שלך באוריגמי
-const donorId = params.get("donor_id") || params.get("origami_id"); 
+const donorId = params.get("donor_id") || params.get("origami_id");
 
 const iframe = document.getElementById("NedarimFrame");
 const saveBtn = document.getElementById("saveBtn");
 const msg = document.getElementById("msg");
 
-function setMsg(text) {
+function setMsg(text, color = "#666") {
   msg.textContent = text || "";
+  msg.style.color = color;
 }
 
 function postToFrame(data) {
@@ -101,12 +107,11 @@ window.onload = function () {
     postToFrame({ Name: "GetHeight" });
   };
 
-  // הכתובת המקורית שלך
   iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
   
-  // פקודה לאוריגמי להתאים גובה (חשוב!)
+  // פקודה לאוריגמי להגדיר גובה ווידג'ט
   setTimeout(() => {
-    window.parent.postMessage({ type: "resize_widget", height: 65 }, "*");
+    window.parent.postMessage({ type: "resize_widget", height: 75 }, "*");
   }, 500);
 };
 
@@ -115,18 +120,15 @@ async function receiveMessage(event) {
   if (!data || !data.Name) return;
 
   if (data.Name === "Height") {
-    const h = parseInt(data.Value, 10);
-    if (!isNaN(h) && h > 40) {
-      iframe.style.height = (h + 5) + "px";
-    }
-    return;
+    // מונעים מה-iframe לקפוץ לגובה גדול מדי ולחתוך את עצמו
+    return; 
   }
 
   if (data.Name === "TransactionResponse") {
     try {
       const res = data.Value;
       if (res.Status === "Error") {
-        setMsg(res.Message || "שגיאה");
+        setMsg(res.Message || "שגיאה בפרטים", "red");
         saveBtn.disabled = false;
         return;
       }
@@ -134,7 +136,7 @@ async function receiveMessage(event) {
       const token = res.Token || res.CardToken || res.CreditToken || res.TransactionToken || "";
 
       if (!token) {
-        setMsg("לא נמצא טוקן");
+        setMsg("לא נמצא טוקן", "red");
         saveBtn.disabled = false;
         return;
       }
@@ -150,9 +152,9 @@ async function receiveMessage(event) {
       });
 
       if (!makeResponse.ok) throw new Error("Make failed");
-      setMsg("נשלח בהצלחה");
+      setMsg("✅ נשמר בהצלחה", "green");
     } catch (err) {
-      setMsg("השליחה נכשלה");
+      setMsg("❌ השליחה נכשלה", "red");
     } finally {
       saveBtn.disabled = false;
     }
@@ -160,7 +162,7 @@ async function receiveMessage(event) {
 }
 
 function sendPayment() {
-  setMsg("מעבד...");
+  setMsg("⌛ מעבד...", "#0f766e");
   saveBtn.disabled = true;
 
   postToFrame({
