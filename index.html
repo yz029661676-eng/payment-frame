@@ -9,26 +9,27 @@
     
     .container {
       display: flex;
-      flex-direction: row-reverse; /* הופך את הסדר כדי שהשדה יהיה מימין והסמלים משמאל */
+      flex-direction: row; /* שדה בימין, כפתור וסמלים משמאל */
       align-items: center;
-      gap: 12px;
-      padding: 5px 10px;
+      gap: 8px;
+      padding: 5px;
       height: 60px;
       box-sizing: border-box;
+      width: 100%;
     }
 
     iframe {
-      flex: 1; /* לוקח את כל המקום הפנוי */
-      min-width: 280px; /* מבטיח שהשדה לא יתכווץ ויהיה מקום למספר ארוך */
+      flex: 1; /* לוקח את כל הרוחב המקסימלי האפשרי */
       height: 45px !important;
       border: 1px solid #ccc;
       border-radius: 4px;
+      min-width: 0; /* מאפשר לו להיות גמיש באמת */
     }
 
     button {
       height: 42px;
-      padding: 0 20px;
-      font-size: 16px;
+      padding: 0 15px;
+      font-size: 15px;
       border: 0;
       border-radius: 6px;
       cursor: pointer;
@@ -36,6 +37,7 @@
       color: white;
       font-weight: bold;
       white-space: nowrap;
+      flex-shrink: 0; /* הכפתור לא יתכווץ לעולם */
     }
 
     button:disabled { background: #ccc; }
@@ -43,22 +45,21 @@
     .security-icons {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding-left: 5px;
+      gap: 4px;
+      flex-shrink: 0; /* הסמלים לא יתכווצו */
     }
 
-    /* שימוש בסמלים של נדרים פלוס שחייבים לעבוד */
     .security-icons img {
-      height: 22px;
+      height: 18px; /* סמלים קטנים עוד יותר כדי לפנות מקום */
       width: auto;
-      opacity: 0.8;
+      display: block;
     }
 
     #msg {
       position: absolute;
       bottom: 2px;
-      right: 20px;
-      font-size: 12px;
+      right: 15px;
+      font-size: 11px;
       font-weight: bold;
     }
   </style>
@@ -71,8 +72,8 @@
     <button id="saveBtn" type="button">שמור</button>
 
     <div class="security-icons">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png" alt="Secure">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png" alt="PCI">
+      <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png">
+      <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png">
     </div>
   </div>
 
@@ -101,53 +102,35 @@ function postToFrame(data) {
 
 window.onload = function () {
   window.addEventListener("message", receiveMessage, false);
-
-  iframe.onload = function () {
-    postToFrame({ Name: "GetHeight" });
-  };
-
+  iframe.onload = function () { postToFrame({ Name: "GetHeight" }); };
   iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
   
-  // עדכון גובה הווידג'ט באוריגמי
   setTimeout(() => {
-    window.parent.postMessage({ type: "resize_widget", height: 75 }, "*");
+    window.parent.postMessage({ type: "resize_widget", height: 70 }, "*");
   }, 500);
 };
 
 async function receiveMessage(event) {
   const data = event.data;
   if (!data || !data.Name) return;
-
-  if (data.Name === "Height") {
-    // מונע מהאיפרם לקפוץ גבהים
-    return;
-  }
-
   if (data.Name === "TransactionResponse") {
     try {
       const res = data.Value;
       if (res.Status === "Error") {
-        setMsg(res.Message || "שגיאה בפרטים", "red");
+        setMsg(res.Message || "שגיאה", "red");
         saveBtn.disabled = false;
         return;
       }
-
-      const token = res.Token || res.CardToken || res.CreditToken || "";
-
+      const token = res.Token || res.CardToken || "";
       const makeResponse = await fetch(MAKE_WEBHOOK, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          donor_id: donorId,
-          token: token,
-          response: res
-        })
+        body: JSON.stringify({ donor_id: donorId, token: token, response: res })
       });
-
       if (!makeResponse.ok) throw new Error("Make failed");
-      setMsg("✅ נשמר בהצלחה", "green");
+      setMsg("✅ נשמר", "green");
     } catch (err) {
-      setMsg("❌ השליחה נכשלה", "red");
+      setMsg("❌ נכשל", "red");
     } finally {
       saveBtn.disabled = false;
     }
@@ -155,21 +138,13 @@ async function receiveMessage(event) {
 }
 
 function sendPayment() {
-  setMsg("⌛ מעבד...", "#0f766e");
+  setMsg("⌛...", "#0f766e");
   saveBtn.disabled = true;
-
   postToFrame({
     Name: "FinishTransaction2",
     Value: {
-      Mosad: MOSAD,
-      ApiValid: API_VALID,
-      PaymentType: "CreateToken",
-      Currency: "1",
-      Amount: "1",
-      Tashlumim: "1",
-      Comment: "Create token",
-      ForceUpdateMatching: "1",
-      Tokef: ""
+      Mosad: MOSAD, ApiValid: API_VALID, PaymentType: "CreateToken",
+      Currency: "1", Amount: "1", Tashlumim: "1", ForceUpdateMatching: "1"
     }
   });
 }
