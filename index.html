@@ -1,153 +1,165 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Payment Strip</title>
-  <style>
-    html, body { margin: 0; padding: 0; background: transparent; font-family: Arial, sans-serif; overflow: hidden; width: 100%; }
-    
-    .container {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 8px;
-      padding: 5px;
-      height: 55px;
-      box-sizing: border-box;
-      width: 100%;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Frame</title>
 
-    iframe {
-      flex: 1; 
-      /* כאן השינוי: גובה קבוע וחזק שלא יזוז בשום מקרה */
-      height: 45px !important; 
-      width: 100% !important;
-      min-width: 250px; /* מבטיח שיהיה רחב מהרגע הראשון */
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background: white;
-    }
+<style>
+body{
+  margin:0;
+  font-family:Arial, sans-serif;
+}
 
-    button {
-      height: 42px;
-      padding: 0 15px;
-      font-size: 15px;
-      border: 0;
-      border-radius: 6px;
-      cursor: pointer;
-      background: #0f766e;
-      color: white;
-      font-weight: bold;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
+.row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+}
 
-    button:disabled { background: #ccc; }
+#NedarimFrame{
+  flex:1;
+  height:42px;
+  border:1px solid #ccc;
+  border-radius:6px;
+}
 
-    .security-icons {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
-    }
+#saveBtn{
+  height:42px;
+  padding:0 18px;
+  background:#1f7a63;
+  color:white;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:14px;
+}
 
-    .security-icons img {
-      height: 18px;
-      width: auto;
-    }
+#saveBtn:hover{
+  background:#17614f;
+}
 
-    #msg {
-      position: absolute;
-      bottom: 2px;
-      right: 15px;
-      font-size: 11px;
-      font-weight: bold;
-    }
-  </style>
+#msg{
+  font-size:12px;
+  margin-top:6px;
+}
+</style>
 </head>
+
 <body>
 
-  <div class="container">
-    <iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
-    <button id="saveBtn" type="button">שמור</button>
-    <div class="security-icons">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png">
-    </div>
-  </div>
-  <div id="msg"></div>
+<div class="row">
+  <iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
+  <button id="saveBtn">שמור</button>
+</div>
+
+<div id="msg"></div>
 
 <script>
-const MOSAD = "7006117";
-const API_VALID = "/M98yhlNWO";
-const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
+
+console.log("URL:", window.location.href);
+console.log("QUERY:", window.location.search);
 
 const params = new URLSearchParams(window.location.search);
-const donorId = params.get("donor_id") || params.get("origami_id");
+const donor_id = params.get("donor_id");
+
+const MOSAD = "7006117";
+const API_VALID = "/M98yhlNW0";
+const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
 
 const iframe = document.getElementById("NedarimFrame");
 const saveBtn = document.getElementById("saveBtn");
 const msg = document.getElementById("msg");
 
-function setMsg(text, color = "#666") {
-  msg.textContent = text || "";
-  msg.style.color = color;
+function sendParentHeight(){
+  window.parent.postMessage({
+    type:"resize_widget",
+    height:60
+  },"*");
 }
 
-window.onload = function () {
-  window.addEventListener("message", receiveMessage, false);
-  
-  // הכתובת של נדרים
-  iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
-  
-  // מקבעים את גובה הווידג'ט באוריגמי מיד בטעינה
-  setTimeout(() => {
-    window.parent.postMessage({ type: "resize_widget", height: 70 }, "*");
-  }, 300);
+window.onload = function(){
+
+  sendParentHeight();
+
+  window.addEventListener("message", readPostMessage,false);
+
+  iframe.onload = function(){
+    postToFrame({Name:"GetHeight"});
+  };
+
+  iframe.src="https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
 };
 
-async function receiveMessage(event) {
-  const data = event.data;
-  if (!data || !data.Name) return;
+function postToFrame(data){
+  iframe.contentWindow.postMessage(data,"*");
+}
 
-  // ביטלנו את הטיפול ב-Height כדי למנוע את ה"קפיצות" והכיווץ של השדה
+function readPostMessage(event){
 
-  if (data.Name === "TransactionResponse") {
-    try {
-      const res = data.Value;
-      if (res.Status === "Error") {
-        setMsg(res.Message || "שגיאה", "red");
-        saveBtn.disabled = false;
-        return;
-      }
-      const token = res.Token || res.CardToken || "";
-      const makeResponse = await fetch(MAKE_WEBHOOK, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ donor_id: donorId, token: token, response: res })
-      });
-      if (!makeResponse.ok) throw new Error("Make failed");
-      setMsg("✅ נשמר", "green");
-    } catch (err) {
-      setMsg("❌ נכשל", "red");
-    } finally {
-      saveBtn.disabled = false;
+  if(!event.data || !event.data.Name) return;
+
+  if(event.data.Name==="Height"){
+    iframe.style.height=(parseInt(event.data.Value)+5)+"px";
+  }
+
+  if(event.data.Name==="TransactionResponse"){
+
+    const response = event.data.Value;
+
+    if(response.Status==="Error"){
+      msg.innerText=response.Message;
+      saveBtn.disabled=false;
+      return;
     }
+
+    const token = response.Token;
+
+    fetch(MAKE_WEBHOOK,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        donor_id:donor_id,
+        token:token,
+        response:response
+      })
+    });
+
+    msg.innerText="נשמר בהצלחה";
   }
 }
 
-saveBtn.addEventListener("click", function() {
-  setMsg("⌛...", "#0f766e");
-  saveBtn.disabled = true;
-  iframe.contentWindow.postMessage({
-    Name: "FinishTransaction2",
-    Value: {
-      Mosad: MOSAD, ApiValid: API_VALID, PaymentType: "CreateToken",
-      Currency: "1", Amount: "1", Tashlumim: "1", ForceUpdateMatching: "1"
+saveBtn.onclick=function(){
+
+  saveBtn.disabled=true;
+  msg.innerText="שומר...";
+
+  postToFrame({
+    Name:"FinishTransaction2",
+    Value:{
+      Mosad:MOSAD,
+      ApiValid:API_VALID,
+      PaymentType:"CreateToken",
+      Currency:"1",
+      FirstName:"",
+      LastName:"",
+      Street:"",
+      City:"",
+      Phone:"",
+      Mail:"",
+      Amount:"1",
+      Tashlumim:"1",
+      Comment:"Create token",
+      Tokef:""
     }
-  }, "*");
-});
+  });
+
+};
+
 </script>
+
 </body>
 </html>
