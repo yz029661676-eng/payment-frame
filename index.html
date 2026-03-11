@@ -149,6 +149,7 @@ async function receiveMessage(event) {
 }
 
 function sendPayment() {
+    saveBtn.disabled = true;
   try {
     setMsg("");
     saveBtn.disabled = true;
