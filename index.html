@@ -1,104 +1,207 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nedarim Token</title>
-  <style>
-    html, body { margin: 0; padding: 0; background: transparent; font-family: Arial, sans-serif; overflow: hidden; }
-    .wrap { width: 100%; max-width: 420px; margin: 0 auto; padding: 0; }
-    iframe { width: 100%; height: 160px; border: 0; display: block; background: transparent; }
-    button { width: 100%; margin-top: 8px; padding: 10px 12px; font-size: 14px; border: 0; border-radius: 8px; cursor: pointer; background: #0f766e; color: white; }
-    button:disabled { background: #ccc; }
-    .msg { font-size: 13px; margin-top: 6px; text-align: center; color: #444; min-height: 18px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Frame</title>
+
+<style>
+html, body {
+    margin:0;
+    padding:0;
+    background:transparent;
+    font-family:Arial, sans-serif;
+}
+
+.wrap{
+    width:100%;
+    max-width:420px;
+    margin:auto;
+}
+
+iframe{
+    width:100%;
+    height:0;
+    border:0;
+}
+
+button{
+    width:100%;
+    margin-top:8px;
+    padding:10px;
+    border-radius:8px;
+    border:0;
+    background:#0f766e;
+    color:white;
+    font-size:14px;
+    cursor:pointer;
+}
+
+.msg{
+    font-size:13px;
+    text-align:center;
+    margin-top:6px;
+}
+</style>
 </head>
+
+
 <body>
-  <div class="wrap">
-    <iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
-    <button id="saveBtn" type="button">שמור כרטיס</button>
-    <div class="msg" id="msg"></div>
-  </div>
 
-  <script>
-    const MOSAD = "7006117";
-    const API_VALID = "/M98yhlNWO";
-    const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
+<div class="wrap">
 
-    const iframe = document.getElementById("NedarimFrame");
-    const saveBtn = document.getElementById("saveBtn");
-    const msg = document.getElementById("msg");
+<iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
 
-    // חילוץ ה-ID מה-URL שאוריגמי בונה עם ה"חץ הקטן"
-    const urlParams = new URLSearchParams(window.location.search);
-    const origamiId = urlParams.get('origami_id') || "unknown";
+<button id="saveBtn">שמור כרטיס</button>
 
-    function sendParentHeight() {
-      const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-      window.parent.postMessage({ type: "resize_widget", height: h + 15 }, "*");
-    }
+<div id="msg" class="msg"></div>
 
-    function postToFrame(data) {
-      iframe.contentWindow.postMessage(data, "*");
-    }
+</div>
 
-    window.onload = function () {
-      window.addEventListener("message", receiveMessage, false);
-      
-      // טעינה נכונה של ה-Iframe עם כל הפרמטרים שנדרים צריך כדי להציג שדות
-      const nedarimUrl = `https://www.matara.pro/nedarimplus/iframe/?Mosad=${MOSAD}&ApiValid=${API_VALID}&PaymentType=CreateToken&language=he&Tokef=Hide&CVV=Hide&Amount=Hide&Name=Hide&Phone=Hide&Mail=Hide&Address=Hide&City=Hide&TzeudatZehut=Hide&Comment=Hide`;
-      
-      iframe.src = nedarimUrl;
 
-      setTimeout(sendParentHeight, 500);
-    };
+<script>
 
-    async function receiveMessage(event) {
-      const data = event.data;
-      if (!data || !data.Name) return;
+const MOSAD = "7006117";
+const API_VALID = "/M98yhlNW0";
+const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
 
-      if (data.Name === "Height") {
-        iframe.style.height = (parseInt(data.Value, 10) + 10) + "px";
-        setTimeout(sendParentHeight, 100);
-      }
 
-      if (data.Name === "TransactionResponse") {
-        const res = data.Value;
+/* קבלת donor_id מה-URL */
 
-        if (res.Status === "Error") {
-          msg.textContent = res.Message || "שגיאה";
-          saveBtn.disabled = false;
-          return;
-        }
+const params = new URLSearchParams(window.location.search);
+const donorId = params.get("donor_id");
 
-        const token = res.Token || res.CardToken || res.CreditToken || "";
+console.log("donor_id:", donorId);
 
-        try {
-          const response = await fetch(MAKE_WEBHOOK, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: token,
-              origami_id: origamiId,
-              response: res
-            })
-          });
-          
-          if (!response.ok) throw new Error("Webhook failed");
-          msg.textContent = "נשמר בהצלחה!";
-        } catch (err) {
-          msg.textContent = "הטוקן נוצר, אך השליחה למייק נכשלה";
-        }
-        saveBtn.disabled = false;
-      }
-    }
 
-    saveBtn.addEventListener("click", function() {
-      msg.textContent = "מעבד...";
-      saveBtn.disabled = true;
-      // פקודה לנדרים לבצע את יצירת הטוקן
-      postToFrame({ Name: "FinishNedarim", Value: "Go" });
-    });
-  </script>
+/* אלמנטים */
+
+const iframe = document.getElementById("NedarimFrame");
+const saveBtn = document.getElementById("saveBtn");
+const msg = document.getElementById("msg");
+
+
+function postToFrame(data){
+    iframe.contentWindow.postMessage(data,"*");
+}
+
+
+/* טעינת iframe */
+
+window.onload = function(){
+
+window.addEventListener("message", receiveMessage, false);
+
+iframe.onload = function(){
+    postToFrame({Name:"GetHeight"});
+};
+
+iframe.src="https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
+
+};
+
+
+/* קבלת הודעות מהסליקה */
+
+async function receiveMessage(event){
+
+const data = event.data;
+
+if(!data || !data.Name) return;
+
+
+if(data.Name==="Height"){
+iframe.style.height = (parseInt(data.Value)+10)+"px";
+}
+
+
+if(data.Name==="TransactionResponse"){
+
+const res = data.Value;
+
+if(res.Status==="Error"){
+msg.textContent = res.Message || "שגיאה";
+saveBtn.disabled=false;
+return;
+}
+
+
+const token =
+res.Token ||
+res.CardToken ||
+res.CreditToken ||
+res.TransactionToken ||
+"";
+
+
+if(!token){
+msg.textContent="לא נמצא טוקן";
+saveBtn.disabled=false;
+return;
+}
+
+
+/* שליחה ל-Make */
+
+try{
+
+await fetch(MAKE_WEBHOOK,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+donor_id: donorId,
+token: token,
+response: res
+})
+});
+
+msg.textContent="נשמר בהצלחה";
+
+}catch(err){
+
+console.error(err);
+msg.textContent="הטוקן נוצר אבל השליחה נכשלה";
+
+}
+
+saveBtn.disabled=false;
+
+}
+
+}
+
+
+/* לחיצה על הכפתור */
+
+function sendPayment(){
+
+msg.textContent="";
+saveBtn.disabled=true;
+
+postToFrame({
+Name:"FinishTransaction2",
+Value:{
+Mosad:MOSAD,
+ApiValid:API_VALID,
+PaymentType:"CreateToken",
+Currency:"1",
+Amount:"1",
+Tashlumim:"1",
+Comment:"Create token",
+Param1:"",
+Param2:"",
+ForceUpdateMatching:"1",
+Tokef:""
+}
+});
+
+}
+
+saveBtn.addEventListener("click", sendPayment);
+
+</script>
+
 </body>
 </html>
