@@ -1,136 +1,181 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<title>שמירת כרטיס</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Token</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
 
-<style>
-body{
-font-family:Arial;
-max-width:500px;
-margin:auto;
-padding:20px;
-text-align:center;
-}
+    .wrap {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 0;
+    }
 
-iframe{
-width:100%;
-height:0;
-border:1px solid #c44;
-margin-top:20px;
-}
+    iframe {
+      width: 100%;
+      height: 0;
+      border: 0;
+      display: block;
+      background: transparent;
+    }
 
-button{
-margin-top:20px;
-padding:12px;
-width:100%;
-font-size:16px;
-background:#0ea5a4;
-color:white;
-border:none;
-cursor:pointer;
-}
-</style>
+    button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #0f766e;
+      color: white;
+    }
+
+    .msg {
+      font-size: 13px;
+      margin-top: 6px;
+      text-align: center;
+      color: #444;
+      min-height: 18px;
+    }
+  </style>
 </head>
-
 <body>
+  <div class="wrap" id="wrap">
+    <iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
+    <button id="saveBtn" type="button">שמור כרטיס</button>
+    <div class="msg" id="msg"></div>
+  </div>
 
-<h2>הזינו מספר אשראי</h2>
+  <script>
+    const MOSAD = "7006117";
+    const API_VALID = "/M98yhlNWO";
+    const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
 
-<iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
+    const iframe = document.getElementById("NedarimFrame");
+    const saveBtn = document.getElementById("saveBtn");
+    const msg = document.getElementById("msg");
 
-<button onclick="sendPayment()">שמירת כרטיס</button>
+    function sendParentHeight() {
+      const h = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      );
 
-<script>
+      window.parent.postMessage({
+        type: "resize_widget",
+        height: h + 12
+      }, "*");
+    }
 
-const MOSAD = "7006117";
-const API_VALID = "/M98yhlNWO";
-const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
+    function postToFrame(data) {
+      iframe.contentWindow.postMessage(data, "*");
+    }
 
-const iframe = document.getElementById("NedarimFrame");
+    window.onload = function () {
+      window.addEventListener("message", receiveMessage, false);
 
-window.onload = function(){
+      iframe.onload = function () {
+        postToFrame({ Name: "GetHeight" });
+      };
 
-window.addEventListener("message", receiveMessage,false);
+      iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
 
-iframe.onload = function(){
-postToFrame({Name:"GetHeight"});
-};
+      setTimeout(sendParentHeight, 300);
+      setTimeout(sendParentHeight, 1000);
+    };
 
-iframe.src="https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
-};
+    async function receiveMessage(event) {
+      const data = event.data;
+      if (!data || !data.Name) return;
 
-function postToFrame(data){
-iframe.contentWindow.postMessage(data,"*");
-}
+      if (data.Name === "Height") {
+        iframe.style.height = (parseInt(data.Value, 10) + 8) + "px";
+        setTimeout(sendParentHeight, 100);
+      }
 
-function receiveMessage(event){
+      if (data.Name === "TransactionResponse") {
+        const res = data.Value;
 
-const data=event.data;
+        if (res.Status === "Error") {
+          msg.textContent = res.Message || "שגיאה";
+          saveBtn.disabled = false;
+          setTimeout(sendParentHeight, 100);
+          return;
+        }
 
-if(!data || !data.Name) return;
+        const token =
+          res.Token ||
+          res.CardToken ||
+          res.CreditToken ||
+          res.TransactionToken ||
+          "";
 
-if(data.Name==="Height"){
-iframe.style.height=(parseInt(data.Value)+15)+"px";
-}
+        if (!token) {
+          console.log("Full response:", res);
+          msg.textContent = "לא נמצא טוקן בתגובה";
+          saveBtn.disabled = false;
+          setTimeout(sendParentHeight, 100);
+          return;
+        }
 
-if(data.Name==="TransactionResponse"){
+        try {
+          const response = await fetch(MAKE_WEBHOOK, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              token: token,
+              response: res
+            })
+          });
 
-const res=data.Value;
+          if (!response.ok) throw new Error("Webhook failed");
 
-if(res.Status==="Error"){
-alert(res.Message);
-return;
-}
+          msg.textContent = "נשמר בהצלחה";
+        } catch (err) {
+          console.error(err);
+          msg.textContent = "הטוקן נוצר, אבל השליחה נכשלה";
+        }
 
-const token =
-res.Token ||
-res.CardToken ||
-res.CreditToken ||
-res.TransactionToken;
+        saveBtn.disabled = false;
+        setTimeout(sendParentHeight, 100);
+      }
+    }
 
-fetch(MAKE_WEBHOOK,{
-method:"POST",
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({
-token:token,
-response:res
-})
-});
+    function sendPayment() {
+      msg.textContent = "";
+      saveBtn.disabled = true;
 
-alert("הטוקן נשמר בהצלחה");
+      postToFrame({
+        Name: "FinishTransaction2",
+        Value: {
+          Mosad: MOSAD,
+          ApiValid: API_VALID,
+          PaymentType: "CreateToken",
+          Currency: "1",
+          Amount: "1",
+          Tashlumim: "1",
+          Comment: "Create token",
+          Param1: "",
+          Param2: "",
+          ForceUpdateMatching: "1",
+          Tokef: ""
+        }
+      });
+    }
 
-}
-
-}
-
-function sendPayment(){
-
-postToFrame({
-Name:"FinishTransaction2",
-Value:{
-Mosad:MOSAD,
-ApiValid:API_VALID,
-PaymentType:"CreateToken",
-Currency:"1",
-
-Amount:"1",
-Tashlumim:"1",
-
-Comment:"Token creation",
-
-Param1:"",
-Param2:"",
-
-ForceUpdateMatching:"1",
-
-Tokef:""
-}
-});
-
-}
-
-</script>
-
+    saveBtn.addEventListener("click", sendPayment);
+  </script>
 </body>
 </html>
