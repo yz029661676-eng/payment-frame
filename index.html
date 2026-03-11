@@ -9,57 +9,56 @@
     
     .container {
       display: flex;
-      flex-direction: row; /* הכל בשורה אחת */
-      align-items: center; /* יישור אנכי למרכז */
+      flex-direction: row-reverse; /* הופך את הסדר כדי שהשדה יהיה מימין והסמלים משמאל */
+      align-items: center;
       gap: 12px;
       padding: 5px 10px;
-      height: 55px; /* הגדרת גובה קבוע לשורה */
+      height: 60px;
       box-sizing: border-box;
     }
 
     iframe {
-      flex: 3; /* השדה מקבל את רוב הרוחב */
+      flex: 1; /* לוקח את כל המקום הפנוי */
+      min-width: 280px; /* מבטיח שהשדה לא יתכווץ ויהיה מקום למספר ארוך */
       height: 45px !important;
-      border: 1px solid #ddd;
+      border: 1px solid #ccc;
       border-radius: 4px;
-      min-width: 150px;
     }
 
     button {
-      flex: 1; /* כפתור בגודל גמיש */
-      height: 40px;
-      padding: 0 15px;
-      font-size: 15px;
+      height: 42px;
+      padding: 0 20px;
+      font-size: 16px;
       border: 0;
       border-radius: 6px;
       cursor: pointer;
       background: #0f766e;
       color: white;
       font-weight: bold;
-      white-space: nowrap; /* שהטקסט לא ירד שורה */
+      white-space: nowrap;
     }
 
     button:disabled { background: #ccc; }
 
     .security-icons {
-      flex: 0 0 auto; /* סמלים לא משתנים ברוחב */
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-right: 5px;
+      gap: 8px;
+      padding-left: 5px;
     }
 
+    /* שימוש בסמלים של נדרים פלוס שחייבים לעבוד */
     .security-icons img {
-      height: 20px; /* סמלים קטנים מאוד כפי שביקשת */
+      height: 22px;
       width: auto;
-      filter: grayscale(20%); /* שיהיה עדין */
+      opacity: 0.8;
     }
 
     #msg {
       position: absolute;
       bottom: 2px;
-      right: 15px;
-      font-size: 11px;
+      right: 20px;
+      font-size: 12px;
       font-weight: bold;
     }
   </style>
@@ -72,8 +71,8 @@
     <button id="saveBtn" type="button">שמור</button>
 
     <div class="security-icons">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png" title="PCI Protected">
-      <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png" title="Secure SSL">
+      <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png" alt="Secure">
+      <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png" alt="PCI">
     </div>
   </div>
 
@@ -109,7 +108,7 @@ window.onload = function () {
 
   iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
   
-  // פקודה לאוריגמי להגדיר גובה ווידג'ט
+  // עדכון גובה הווידג'ט באוריגמי
   setTimeout(() => {
     window.parent.postMessage({ type: "resize_widget", height: 75 }, "*");
   }, 500);
@@ -120,8 +119,8 @@ async function receiveMessage(event) {
   if (!data || !data.Name) return;
 
   if (data.Name === "Height") {
-    // מונעים מה-iframe לקפוץ לגובה גדול מדי ולחתוך את עצמו
-    return; 
+    // מונע מהאיפרם לקפוץ גבהים
+    return;
   }
 
   if (data.Name === "TransactionResponse") {
@@ -133,13 +132,7 @@ async function receiveMessage(event) {
         return;
       }
 
-      const token = res.Token || res.CardToken || res.CreditToken || res.TransactionToken || "";
-
-      if (!token) {
-        setMsg("לא נמצא טוקן", "red");
-        saveBtn.disabled = false;
-        return;
-      }
+      const token = res.Token || res.CardToken || res.CreditToken || "";
 
       const makeResponse = await fetch(MAKE_WEBHOOK, {
         method: "POST",
