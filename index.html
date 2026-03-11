@@ -4,203 +4,180 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Payment Frame</title>
-
 <style>
 html, body {
-    margin:0;
-    padding:0;
-    background:transparent;
-    font-family:Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: Arial, sans-serif;
 }
 
-.wrap{
-    width:100%;
-    max-width:420px;
-    margin:auto;
+.wrap {
+  width: 100%;
+  max-width: 420px;
+  margin: auto;
 }
 
-iframe{
-    width:100%;
-    height:0;
-    border:0;
+iframe {
+  width: 100%;
+  min-height: 170px;
+  height: 170px;
+  border: 0;
+  display: block;
+  background: transparent;
 }
 
-button{
-    width:100%;
-    margin-top:8px;
-    padding:10px;
-    border-radius:8px;
-    border:0;
-    background:#0f766e;
-    color:white;
-    font-size:14px;
-    cursor:pointer;
+button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 0;
+  background: #0f766e;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
 }
 
-.msg{
-    font-size:13px;
-    text-align:center;
-    margin-top:6px;
+.msg {
+  font-size: 13px;
+  text-align: center;
+  margin-top: 6px;
+  min-height: 20px;
 }
 </style>
 </head>
-
-
 <body>
 
 <div class="wrap">
-
-<iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
-
-<button id="saveBtn">שמור כרטיס</button>
-
-<div id="msg" class="msg"></div>
-
+  <iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
+  <button id="saveBtn" type="button">שמור כרטיס</button>
+  <div id="msg" class="msg"></div>
 </div>
 
-
 <script>
-
 const MOSAD = "7006117";
 const API_VALID = "/M98yhlNWO";
 const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
 
-
-/* קבלת donor_id מה-URL */
-
 const params = new URLSearchParams(window.location.search);
 const donorId = params.get("donor_id");
-
-console.log("donor_id:", donorId);
-
-
-/* אלמנטים */
 
 const iframe = document.getElementById("NedarimFrame");
 const saveBtn = document.getElementById("saveBtn");
 const msg = document.getElementById("msg");
 
-
-function postToFrame(data){
-    iframe.contentWindow.postMessage(data,"*");
+function setMsg(text) {
+  msg.textContent = text || "";
+  console.log(text || "");
 }
 
+function postToFrame(data) {
+  iframe.contentWindow.postMessage(data, "*");
+}
 
-/* טעינת iframe */
+window.onload = function () {
+  window.addEventListener("message", receiveMessage, false);
 
-window.onload = function(){
+  iframe.onload = function () {
+    postToFrame({ Name: "GetHeight" });
+  };
 
-window.addEventListener("message", receiveMessage, false);
-
-iframe.onload = function(){
-    postToFrame({Name:"GetHeight"});
+  iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
 };
 
-iframe.src="https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
+async function receiveMessage(event) {
+  const data = event.data;
+  console.log("message received:", data);
 
-};
+  if (!data || !data.Name) return;
 
+  if (data.Name === "Height") {
+    const h = parseInt(data.Value, 10);
+    if (!isNaN(h) && h > 50) {
+      iframe.style.height = (h + 10) + "px";
+    }
+    return;
+  }
 
-/* קבלת הודעות מהסליקה */
+  if (data.Name === "TransactionResponse") {
+    try {
+      const res = data.Value;
 
-async function receiveMessage(event){
+      if (res.Status === "Error") {
+        setMsg(res.Message || "שגיאה");
+        return;
+      }
 
-const data = event.data;
+      const token =
+        res.Token ||
+        res.CardToken ||
+        res.CreditToken ||
+        res.TransactionToken ||
+        "";
 
-if(!data || !data.Name) return;
+      if (!token) {
+        console.log("full response:", res);
+        setMsg("לא נמצא טוקן");
+        return;
+      }
 
+      const makeResponse = await fetch(MAKE_WEBHOOK, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          donor_id: donorId,
+          token: token,
+          response: res
+        })
+      });
 
-if(data.Name==="Height"){
-iframe.style.height = (parseInt(data.Value)+10)+"px";
+      if (!makeResponse.ok) {
+        throw new Error("Make returned " + makeResponse.status);
+      }
+
+      setMsg("נשלח בהצלחה");
+    } catch (err) {
+      console.error(err);
+      setMsg("השליחה נכשלה");
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
 }
 
+function sendPayment() {
+  try {
+    setMsg("");
+    saveBtn.disabled = true;
 
-if(data.Name==="TransactionResponse"){
-
-const res = data.Value;
-
-if(res.Status==="Error"){
-msg.textContent = res.Message || "שגיאה";
-saveBtn.disabled=false;
-return;
+    postToFrame({
+      Name: "FinishTransaction2",
+      Value: {
+        Mosad: MOSAD,
+        ApiValid: API_VALID,
+        PaymentType: "CreateToken",
+        Currency: "1",
+        Amount: "1",
+        Tashlumim: "1",
+        Comment: "Create token",
+        Param1: "",
+        Param2: "",
+        ForceUpdateMatching: "1",
+        Tokef: ""
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    saveBtn.disabled = false;
+    setMsg("שגיאה בלחיצה על הכפתור");
+  }
 }
 
-
-const token =
-res.Token ||
-res.CardToken ||
-res.CreditToken ||
-res.TransactionToken ||
-"";
-
-
-if(!token){
-msg.textContent="לא נמצא טוקן";
-saveBtn.disabled=false;
-return;
-}
-
-
-/* שליחה ל-Make */
-
-try{
-
-await fetch(MAKE_WEBHOOK,{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-donor_id: donorId,
-token: token,
-response: res
-})
-});
-
-msg.textContent="נשמר בהצלחה";
-
-}catch(err){
-
-console.error(err);
-msg.textContent="הטוקן נוצר אבל השליחה נכשלה";
-
-}
-
-saveBtn.disabled=false;
-
-}
-
-}
-
-
-/* לחיצה על הכפתור */
-
-function sendPayment(){
-
-msg.textContent="";
-saveBtn.disabled=true;
-
-postToFrame({
-Name:"FinishTransaction2",
-Value:{
-Mosad:MOSAD,
-ApiValid:API_VALID,
-PaymentType:"CreateToken",
-Currency:"1",
-Amount:"1",
-Tashlumim:"1",
-Comment:"Create token",
-Param1:"",
-Param2:"",
-ForceUpdateMatching:"1",
-Tokef:""
-}
-});
-
-}
-
+saveBtn.disabled = false;
 saveBtn.addEventListener("click", sendPayment);
-
 </script>
 
 </body>
