@@ -1,273 +1,136 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>יצירת טוקן אשראי</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 520px;
-      margin: 30px auto;
-      padding: 20px;
-      direction: rtl;
-    }
+<meta charset="UTF-8">
+<title>שמירת כרטיס</title>
 
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-    }
+<style>
+body{
+font-family:Arial;
+max-width:500px;
+margin:auto;
+padding:20px;
+text-align:center;
+}
 
-    .field {
-      margin-bottom: 14px;
-    }
+iframe{
+width:100%;
+height:0;
+border:1px solid #c44;
+margin-top:20px;
+}
 
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-
-    input, button {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px;
-      font-size: 16px;
-    }
-
-    button {
-      cursor: pointer;
-      border: none;
-      background: #0ea5a4;
-      color: white;
-      border-radius: 6px;
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: wait;
-    }
-
-    iframe {
-      width: 100%;
-      height: 0;
-      border: 1px solid #c44;
-      margin: 16px 0;
-    }
-
-    .msg {
-      margin-top: 14px;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-
-    .error {
-      background: #fdecec;
-      color: #a40000;
-    }
-
-    .success {
-      background: #ecfdf3;
-      color: #166534;
-    }
-
-    .loading {
-      text-align: center;
-      color: #666;
-      margin: 10px 0;
-    }
-  </style>
+button{
+margin-top:20px;
+padding:12px;
+width:100%;
+font-size:16px;
+background:#0ea5a4;
+color:white;
+border:none;
+cursor:pointer;
+}
+</style>
 </head>
+
 <body>
-  <h2>שמירת אמצעי תשלום</h2>
 
-  <div class="field">
-    <label for="clientName">שם מלא</label>
-    <input id="clientName" type="text" placeholder="השם המלא של הלקוח" />
-  </div>
+<h2>הזינו מספר אשראי</h2>
 
-  <div class="field">
-    <label for="clientId">מזהה לקוח / מספר רשומה</label>
-    <input id="clientId" type="text" placeholder="לא חובה, אבל מומלץ" />
-  </div>
+<iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
 
-  <iframe
-    id="NedarimFrame"
-    src="about:blank"
-    scrolling="no"
-    title="secured payment frame">
-  </iframe>
+<button onclick="sendPayment()">שמירת כרטיס</button>
 
-  <div id="frameLoading" class="loading">טוען את מסך האשראי...</div>
+<script>
 
-  <button id="saveCardBtn" type="button">שמור כרטיס וייצר טוקן</button>
+const MOSAD = "7006117";
+const API_VALID = "/M98yhlNWO";
+const MAKE_WEBHOOK = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
 
-  <div id="message"></div>
+const iframe = document.getElementById("NedarimFrame");
 
-  <script>
-    const MOSAD = "7006117";
-    const API_VALID = "/M98yhlNWO";
-    const MAKE_WEBHOOK_URL = "https://hook.eu2.make.com/u49pybbibi66ce09vhws54n5j6wsc4c4";
+window.onload = function(){
 
-    const iframe = document.getElementById("NedarimFrame");
-    const frameLoading = document.getElementById("frameLoading");
-    const saveCardBtn = document.getElementById("saveCardBtn");
-    const messageBox = document.getElementById("message");
+window.addEventListener("message", receiveMessage,false);
 
-    function showMessage(text, type) {
-      messageBox.className = "msg " + type;
-      messageBox.textContent = text;
-    }
+iframe.onload = function(){
+postToFrame({Name:"GetHeight"});
+};
 
-    function clearMessage() {
-      messageBox.className = "";
-      messageBox.textContent = "";
-    }
+iframe.src="https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
+};
 
-    function postToNedarim(data) {
-      iframe.contentWindow.postMessage(data, "*");
-    }
+function postToFrame(data){
+iframe.contentWindow.postMessage(data,"*");
+}
 
-    function initFrame() {
-      window.addEventListener("message", readPostMessage, false);
+function receiveMessage(event){
 
-      iframe.onload = function () {
-        postToNedarim({ Name: "GetHeight" });
-      };
+const data=event.data;
 
-      iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
-    }
+if(!data || !data.Name) return;
 
-    function readPostMessage(event) {
-      const data = event.data;
-      if (!data || !data.Name) return;
+if(data.Name==="Height"){
+iframe.style.height=(parseInt(data.Value)+15)+"px";
+}
 
-      console.log("Nedarim response:", data);
+if(data.Name==="TransactionResponse"){
 
-      switch (data.Name) {
-        case "Height":
-          iframe.style.height = (parseInt(data.Value || 0, 10) + 15) + "px";
-          frameLoading.style.display = "none";
-          break;
+const res=data.Value;
 
-        case "TransactionResponse":
-          handleTransactionResponse(data.Value);
-          break;
-      }
-    }
+if(res.Status==="Error"){
+alert(res.Message);
+return;
+}
 
-    async function handleTransactionResponse(response) {
-      saveCardBtn.disabled = false;
+const token =
+res.Token ||
+res.CardToken ||
+res.CreditToken ||
+res.TransactionToken;
 
-      if (!response) {
-        showMessage("לא התקבלה תשובה תקינה מחברת הסליקה", "error");
-        return;
-      }
+fetch(MAKE_WEBHOOK,{
+method:"POST",
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({
+token:token,
+response:res
+})
+});
 
-      if (response.Status === "Error") {
-        showMessage(response.Message || "אירעה שגיאה ביצירת הטוקן", "error");
-        return;
-      }
+alert("הטוקן נשמר בהצלחה");
 
-      const token =
-        response.Token ||
-        response.CardToken ||
-        response.CreditToken ||
-        response.TransactionToken ||
-        "";
+}
 
-      if (!token) {
-        console.log("Full response:", response);
-        showMessage("הפעולה הושלמה, אבל לא נמצא שדה טוקן בתשובה. צריך לבדוק את מבנה התגובה.", "error");
-        return;
-      }
+}
 
-      try {
-        const payload = {
-          token: token,
-          clientName: document.getElementById("clientName").value.trim(),
-          clientId: document.getElementById("clientId").value.trim(),
-          response: response
-        };
+function sendPayment(){
 
-        const res = await fetch(MAKE_WEBHOOK_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
-        });
+postToFrame({
+Name:"FinishTransaction2",
+Value:{
+Mosad:MOSAD,
+ApiValid:API_VALID,
+PaymentType:"CreateToken",
+Currency:"1",
 
-        if (!res.ok) {
-          throw new Error("Webhook request failed");
-        }
+Amount:"1",
+Tashlumim:"1",
 
-        showMessage("הטוקן נוצר ונשלח בהצלחה", "success");
+Comment:"Token creation",
 
-        // אופציונלי: אם הדף מוטמע בתוך מערכת אחרת ורוצים להחזיר גם לה
-        window.parent.postMessage({
-          type: "credit_token_ready",
-          token: token,
-          clientName: payload.clientName,
-          clientId: payload.clientId
-        }, "*");
+Param1:"",
+Param2:"",
 
-      } catch (err) {
-        console.error(err);
-        showMessage("הטוקן נוצר, אבל השליחה ל-Make נכשלה", "error");
-      }
-    }
+ForceUpdateMatching:"1",
 
-    function saveCard() {
-      clearMessage();
+Tokef:""
+}
+});
 
-      const clientName = document.getElementById("clientName").value.trim();
-      const clientId = document.getElementById("clientId").value.trim();
+}
 
-      if (!clientName) {
-        showMessage("נא למלא שם לקוח", "error");
-        return;
-      }
+</script>
 
-      saveCardBtn.disabled = true;
-      showMessage("מעבד נתונים, נא להמתין...", "success");
-
-      postToNedarim({
-        Name: "FinishTransaction2",
-        Value: {
-          Mosad: MOSAD,
-          ApiValid: API_VALID,
-          PaymentType: "CreateToken",
-          Currency: "1",
-
-          Zeout: "",
-          FirstName: clientName,
-          LastName: "",
-          Street: "",
-          City: "",
-          Phone: "",
-          Mail: "",
-
-          Amount: "1",
-          Tashlumim: "1",
-
-          Groupe: "",
-          Comment: "Create token בלבד",
-          Param1: clientId,
-          Param2: "",
-          ForceUpdateMatching: "1",
-
-          CallBack: "",
-          CallBackMailError: "",
-
-          Tokef: ""
-        }
-      });
-    }
-
-    saveCardBtn.addEventListener("click", saveCard);
-    window.onload = initFrame;
-  </script>
 </body>
 </html>
