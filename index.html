@@ -3,13 +3,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Token</title>
+  <title>Nedarim Token</title>
   <style>
-    html, body { margin: 0; padding: 0; background: transparent; font-family: Arial, sans-serif; overflow: hidden; }
-    .wrap { width: 100%; max-width: 420px; margin: 0 auto; padding: 0; }
-    iframe { width: 100%; height: 0; border: 0; display: block; background: transparent; }
-    button { width: 100%; margin-top: 8px; padding: 10px 12px; font-size: 14px; border: 0; border-radius: 8px; cursor: pointer; background: #0f766e; color: white; }
-    .msg { font-size: 13px; margin-top: 6px; text-align: center; color: #444; min-height: 18px; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    .wrap {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+      padding: 0;
+    }
+    iframe {
+      width: 100%;
+      height: 0;
+      border: 0;
+      display: block;
+      background: transparent;
+    }
+    button {
+      width: 100%;
+      margin-top: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #0f766e;
+      color: white;
+    }
+    button:disabled {
+      background: #ccc;
+    }
+    .msg {
+      font-size: 13px;
+      margin-top: 6px;
+      text-align: center;
+      color: #444;
+      min-height: 18px;
+    }
   </style>
 </head>
 <body>
@@ -29,8 +65,14 @@
     const msg = document.getElementById("msg");
 
     function sendParentHeight() {
-      const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-      window.parent.postMessage({ type: "resize_widget", height: h + 12 }, "*");
+      const h = Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight
+      );
+      window.parent.postMessage({
+        type: "resize_widget",
+        height: h + 12
+      }, "*");
     }
 
     function postToFrame(data) {
@@ -39,9 +81,16 @@
 
     window.onload = function () {
       window.addEventListener("message", receiveMessage, false);
-      iframe.onload = function () { postToFrame({ Name: "GetHeight" }); };
+
+      iframe.onload = function () {
+        postToFrame({ Name: "GetHeight" });
+      };
+
+      // טעינת ה-iframe של נדרים
       iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
+
       setTimeout(sendParentHeight, 300);
+      setTimeout(sendParentHeight, 1000);
     };
 
     async function receiveMessage(event) {
@@ -55,46 +104,72 @@
 
       if (data.Name === "TransactionResponse") {
         const res = data.Value;
-        
+
+        // חילוץ ה-ID
         let extractedId = "unknown";
         try {
-          const ref = document.referrer;
-          if (ref) {
-            const matches = ref.match(/\/(\d+)(\/|$|\?)/);
-            if (matches && matches[1]) { extractedId = matches[1]; }
-          }
-        } catch (e) { console.log("Referrer error"); }
+            // ניסיון 1: מתוך ה-URL של הגיטהאב עצמו
+            const urlParams = new URLSearchParams(window.location.search);
+            const idFromUrl = urlParams.get('origami_id') || urlParams.get('id');
+            
+            // ניסיון 2: מתוך הכתובת של אוריגמי (Referrer)
+            const ref = document.referrer;
+            const idFromRef = ref ? ref.match(/\/(\d+)(\/|$|\?)/) : null;
+
+            extractedId = idFromUrl || (idFromRef ? idFromRef[1] : "unknown");
+        } catch (e) {
+            console.error("ID Extraction failed", e);
+        }
 
         if (res.Status === "Error") {
           msg.textContent = res.Message || "שגיאה";
           saveBtn.disabled = false;
+          setTimeout(sendParentHeight, 100);
           return;
         }
 
         const token = res.Token || res.CardToken || res.CreditToken || res.TransactionToken || "";
 
+        if (!token) {
+          msg.textContent = "לא נמצא טוקן בתגובה";
+          saveBtn.disabled = false;
+          return;
+        }
+
         try {
           const response = await fetch(MAKE_WEBHOOK, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json"
+            },
             body: JSON.stringify({
               token: token,
               origami_id: extractedId,
-              response: res
+              response: res,
+              debug: {
+                  url: window.location.href,
+                  referrer: document.referrer
+              }
             })
           });
+
           if (!response.ok) throw new Error("Webhook failed");
+
           msg.textContent = "נשמר בהצלחה";
         } catch (err) {
-          msg.textContent = "שליחה נכשלה";
+          console.error(err);
+          msg.textContent = "הטוקן נוצר, אבל השליחה נכשלה";
         }
+
         saveBtn.disabled = false;
+        setTimeout(sendParentHeight, 100);
       }
     }
 
-    saveBtn.addEventListener("click", function() {
-      msg.textContent = "";
+    function sendPayment() {
+      msg.textContent = "מבצע פעולה...";
       saveBtn.disabled = true;
+
       postToFrame({
         Name: "FinishTransaction2",
         Value: {
@@ -105,10 +180,3 @@
           Amount: "1",
           Tashlumim: "1",
           Comment: "Create token",
-          ForceUpdateMatching: "1"
-        }
-      });
-    });
-  </script>
-</body>
-</html>
