@@ -5,25 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payment Strip</title>
   <style>
-    html, body { margin: 0; padding: 0; background: transparent; font-family: Arial, sans-serif; overflow: hidden; }
+    html, body { margin: 0; padding: 0; background: transparent; font-family: Arial, sans-serif; overflow: hidden; width: 100%; }
     
     .container {
       display: flex;
-      flex-direction: row; /* שדה בימין, כפתור וסמלים משמאל */
+      flex-direction: row;
       align-items: center;
       gap: 8px;
       padding: 5px;
-      height: 60px;
+      height: 55px;
       box-sizing: border-box;
       width: 100%;
     }
 
     iframe {
-      flex: 1; /* לוקח את כל הרוחב המקסימלי האפשרי */
-      height: 45px !important;
+      flex: 1; 
+      /* כאן השינוי: גובה קבוע וחזק שלא יזוז בשום מקרה */
+      height: 45px !important; 
+      width: 100% !important;
+      min-width: 250px; /* מבטיח שיהיה רחב מהרגע הראשון */
       border: 1px solid #ccc;
       border-radius: 4px;
-      min-width: 0; /* מאפשר לו להיות גמיש באמת */
+      background: white;
     }
 
     button {
@@ -37,7 +40,7 @@
       color: white;
       font-weight: bold;
       white-space: nowrap;
-      flex-shrink: 0; /* הכפתור לא יתכווץ לעולם */
+      flex-shrink: 0;
     }
 
     button:disabled { background: #ccc; }
@@ -46,13 +49,12 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      flex-shrink: 0; /* הסמלים לא יתכווצו */
+      flex-shrink: 0;
     }
 
     .security-icons img {
-      height: 18px; /* סמלים קטנים עוד יותר כדי לפנות מקום */
+      height: 18px;
       width: auto;
-      display: block;
     }
 
     #msg {
@@ -68,15 +70,12 @@
 
   <div class="container">
     <iframe id="NedarimFrame" src="about:blank" scrolling="no"></iframe>
-
     <button id="saveBtn" type="button">שמור</button>
-
     <div class="security-icons">
       <img src="https://www.matara.pro/nedarimplus/iframe/images/shield.png">
       <img src="https://www.matara.pro/nedarimplus/iframe/images/pci.png">
     </div>
   </div>
-
   <div id="msg"></div>
 
 <script>
@@ -96,23 +95,24 @@ function setMsg(text, color = "#666") {
   msg.style.color = color;
 }
 
-function postToFrame(data) {
-  iframe.contentWindow.postMessage(data, "*");
-}
-
 window.onload = function () {
   window.addEventListener("message", receiveMessage, false);
-  iframe.onload = function () { postToFrame({ Name: "GetHeight" }); };
+  
+  // הכתובת של נדרים
   iframe.src = "https://www.matara.pro/nedarimplus/iframe?language=he&Tokef=Hide&CVV=Hide";
   
+  // מקבעים את גובה הווידג'ט באוריגמי מיד בטעינה
   setTimeout(() => {
     window.parent.postMessage({ type: "resize_widget", height: 70 }, "*");
-  }, 500);
+  }, 300);
 };
 
 async function receiveMessage(event) {
   const data = event.data;
   if (!data || !data.Name) return;
+
+  // ביטלנו את הטיפול ב-Height כדי למנוע את ה"קפיצות" והכיווץ של השדה
+
   if (data.Name === "TransactionResponse") {
     try {
       const res = data.Value;
@@ -137,19 +137,17 @@ async function receiveMessage(event) {
   }
 }
 
-function sendPayment() {
+saveBtn.addEventListener("click", function() {
   setMsg("⌛...", "#0f766e");
   saveBtn.disabled = true;
-  postToFrame({
+  iframe.contentWindow.postMessage({
     Name: "FinishTransaction2",
     Value: {
       Mosad: MOSAD, ApiValid: API_VALID, PaymentType: "CreateToken",
       Currency: "1", Amount: "1", Tashlumim: "1", ForceUpdateMatching: "1"
     }
-  });
-}
-
-saveBtn.addEventListener("click", sendPayment);
+  }, "*");
+});
 </script>
 </body>
 </html>
